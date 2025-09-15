@@ -62,6 +62,7 @@ interface GlucoseTest {
   is_validation: number;
   patient_name: string;
   patient_code: string;
+  lab_number: string;
   created_at: string;
   updated_at: string;
 }
@@ -605,9 +606,9 @@ const Dashboard = () => {
                               console.error("Error updating status:", error);
                             });
                           // window.location.href = `http://localhost:3002/dashboard?menu=results&search=${item.patient_code}&page=1&limit=10`;
-                          window.location.href = `https://rsud-amritambunan.fanscosa.co.id/dashboard?menu=results&search=${item.patient_code}&page=1&limit=10`;
-                        }}
-                      >
+                            window.location.href = `https://rsud-amritambunan.fanscosa.co.id/dashboard?menu=results&search=${item.lab_number}&page=1&limit=10`;
+                          }}
+                          >
                         <div>
                           <Typography variant="body2">
                             Patient Name: {item.patient_name}
