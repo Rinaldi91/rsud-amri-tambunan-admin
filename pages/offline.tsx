@@ -10,7 +10,7 @@ const Offline: React.FC = () => {
   return (
     <>
       <Head>
-        <title>Server Tidak Tersedia - Fans Cosa</title>
+        <title>Connection Error - Fans Cosa</title>
       </Head>
       <div
         style={{
@@ -33,7 +33,7 @@ const Offline: React.FC = () => {
             fontWeight: "bold",
           }}
         >
-          Server Down
+          Internet Connection Error
         </h1>
         <p
           style={{
@@ -43,7 +43,7 @@ const Offline: React.FC = () => {
             marginBottom: "1.5rem",
           }}
         >
-          Sorry, our server is experiencing problems. Please try again later.
+          Sorry, our server is experiencing problems. Please try again.
         </p>
         <button
           onClick={handleReload}

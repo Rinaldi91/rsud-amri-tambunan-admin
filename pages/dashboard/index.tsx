@@ -604,7 +604,8 @@ const Dashboard = () => {
                             .catch((error) => {
                               console.error("Error updating status:", error);
                             });
-                          window.location.href = `http://localhost:3002/dashboard?menu=results&search=${item.patient_code}&page=1&limit=10`;
+                          // window.location.href = `http://localhost:3002/dashboard?menu=results&search=${item.patient_code}&page=1&limit=10`;
+                          window.location.href = `https://rsud-amritambunan.fanscosa.co.id/dashboard?menu=results&search=${item.patient_code}&page=1&limit=10`;
                         }}
                       >
                         <div>
