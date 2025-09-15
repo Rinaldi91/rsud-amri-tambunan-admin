@@ -7,6 +7,7 @@ import {
   QuestionMarkOutlined,
   RefreshOutlined,
   SearchOutlined,
+  GetApp, // Import ikon untuk export
 } from "@mui/icons-material";
 import {
   Box,
@@ -34,6 +35,7 @@ import {
   TableRow,
   TextField,
   Typography,
+  Tooltip,
 } from "@mui/material";
 import dayjs from "dayjs";
 import Head from "next/head";
@@ -66,7 +68,6 @@ interface PrintResult {
   is_validation: number;
   created_at: string;
   updated_at: string;
-  sample_id: string;
   note: string;
   patient_nik: string;
   patient_no_rm: string;
@@ -77,6 +78,7 @@ interface PrintResult {
   patient_barcode: string;
   user_validation: string;
 }
+
 const TestResults = () => {
   const router = useRouter();
   const {
@@ -103,6 +105,7 @@ const TestResults = () => {
   const [resultData, setResultData] = useState<PrintResult[]>([]);
   const [totalGlucoseTestResult, setGlucoseTestResult] = useState(0);
   const [totalFilteredResult, setTotalFilteredResult] = useState(0); // total hasil search
+  const [isExporting, setIsExporting] = useState(false); // State untuk loading export
 
   const [dateFilterType, setDateFilterType] = useState<"single" | "range">(
     "single"
@@ -139,6 +142,211 @@ const TestResults = () => {
     }
 
     return `${years} Tahun ${months} Bulan ${days} Hari`;
+  };
+
+  // Fungsi untuk export data ke Excel
+  const handleExportData = async () => {
+    try {
+      setIsExporting(true);
+
+      // Validasi rentang tanggal untuk export
+      if (!startDate || !endDate) {
+        showErrorToast("Please select both start date and end date for export");
+        return;
+      }
+
+      // Validasi bahwa start date tidak lebih besar dari end date
+      if (startDate.isAfter(endDate)) {
+        showErrorToast("Start date cannot be later than end date");
+        return;
+      }
+
+      const queryParams = new URLSearchParams();
+      queryParams.append("start_date", startDate.format("YYYY-MM-DD"));
+      queryParams.append("end_date", endDate.format("YYYY-MM-DD"));
+      queryParams.append("export", "true"); // Parameter untuk menandakan export
+      
+      // Tambahkan filter lain jika ada
+      if (searchTermResult) {
+        queryParams.append("search", searchTermResult);
+      }
+      if (validationStatus) {
+        queryParams.append("is_validation", validationStatus);
+      }
+
+      // Buat request untuk export
+      const response = await getRequest(
+        `/api/test-glucosa/export?${queryParams.toString()}`,
+        {
+          responseType: 'blob' // Penting untuk file download
+        }
+      );
+
+      // Buat blob dari response
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
+      // Buat URL untuk download
+      const downloadUrl = window.URL.createObjectURL(blob);
+      
+      // Buat element anchor untuk download
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      
+      // Generate filename dengan tanggal
+      const filename = `glucose_test_results_${startDate.format('YYYY-MM-DD')}_to_${endDate.format('YYYY-MM-DD')}.xlsx`;
+      link.download = filename;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+
+      showSuccessToast("Data exported successfully!");
+
+    } catch (error) {
+      console.error("Error exporting data:", error);
+      showErrorToast("Failed to export data. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Fungsi alternatif untuk export menggunakan client-side processing
+  const handleExportDataClientSide = async () => {
+    try {
+      setIsExporting(true);
+
+      // Validasi rentang tanggal
+      if (!startDate || !endDate) {
+        showErrorToast("Please select both start date and end date for export");
+        return;
+      }
+
+      if (startDate.isAfter(endDate)) {
+        showErrorToast("Start date cannot be later than end date");
+        return;
+      }
+
+      // Fetch semua data dalam rentang tanggal
+      const queryParams = new URLSearchParams();
+      queryParams.append("start_date", startDate.format("YYYY-MM-DD"));
+      queryParams.append("end_date", endDate.format("YYYY-MM-DD"));
+      queryParams.append("limit", "10000"); // Set limit tinggi untuk mendapatkan semua data
+      
+      if (searchTermResult) {
+        queryParams.append("search", searchTermResult);
+      }
+      if (validationStatus) {
+        queryParams.append("is_validation", validationStatus);
+      }
+
+      const response = await getRequest(
+        `/api/test-glucosa?${queryParams.toString()}`
+      );
+      
+      const { glucosaTest = [] } = response.data;
+
+      if (glucosaTest.length === 0) {
+        showErrorToast("No data found in the selected date range");
+        return;
+      }
+
+      // Convert data ke format CSV
+      const csvData = convertToCSV(glucosaTest);
+      
+      // Download CSV
+      downloadCSV(csvData, `glucose_test_results_${startDate.format('YYYY-MM-DD')}_to_${endDate.format('YYYY-MM-DD')}.csv`);
+      
+      showSuccessToast(`Successfully exported ${glucosaTest.length} records!`);
+
+    } catch (error) {
+      console.error("Error exporting data:", error);
+      showErrorToast("Failed to export data. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Helper function untuk format tanggal lahir ke format Indonesia
+  const formatDateOfBirth = (dateString: string) => {
+    if (!dateString) return "";
+    return dayjs(dateString).locale("id").format("DD MMMM YYYY");
+  };
+
+  // Helper function untuk convert data ke CSV
+  const convertToCSV = (data: PrintResult[]): string => {
+    const headers = [
+      'No',
+      'Patient Code',
+      'Lab Number', 
+      'Patient Name',
+      'NIK',
+      'No. RM',
+      'Date of Birth',
+      'Gender',
+      'Phone Number',
+      'Referral Doctor',
+      'Test Date & Time',
+      'Glucose Value',
+      'Unit',
+      'Method',
+      'Device Name',
+      'Validation Status',
+      'Validator',
+      'Notes',
+      'Created At',
+      'Updated At'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...data.map((item, index) => [
+        index + 1,
+        `"${item.patient_code || ''}"`,
+        `"${item.lab_number || ''}"`,
+        `"${item.patient_name || ''}"`,
+        `"${item.patient_nik || ''}"`,
+        `"${item.patient_no_rm || ''}"`,
+        `"${formatDateOfBirth(item.patient_date_of_birth)}"`,
+        `"${item.patient_gender || ''}"`,
+        `"${item.patient_number_phone || ''}"`,
+        `"${item.patient_referral_doctor || ''}"`,
+        `"${formatDate(item.date_time)}"`,
+        item.glucos_value,
+        `"${item.unit || ''}"`,
+        `"${item.metode || ''}"`,
+        `"${item.device_name || ''}"`,
+        item.is_validation === 1 ? 'Validated' : 'Not Validated',
+        `"${item.user_validation || ''}"`,
+        `"${item.note || ''}"`,
+        `"${formatDate(item.created_at)}"`,
+        `"${formatDate(item.updated_at)}"`
+      ].join(','))
+    ].join('\n');
+
+    return csvContent;
+  };
+
+  // Helper function untuk download CSV
+  const downloadCSV = (csvContent: string, filename: string) => {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
   };
 
   const fetchDataGlucose = useCallback(async () => {
@@ -389,6 +597,7 @@ const TestResults = () => {
 
     // Referensi rentang normal untuk glukosa
     const referenceRange = "70 - 140 mg/dL";
+    const director = process.env.NEXT_PUBLIC_LAB_DIRECTOR;
 
     printWindow?.document.write(`
     <html>
@@ -621,7 +830,7 @@ const TestResults = () => {
               <div>
                 <p class="font-bold mb-12">Laboratory Director:</p>
                 <div class="border-b border-gray-400 w-48"></div>
-                <p class="mt-1 text-sm">Dr. Andi Wijaya, Sp.PK</p>
+                <p class="mt-1 text-sm">${director || ""}</p>
               </div>
               <div>
                 <p class="font-bold mb-12">Analis Laboratorium:</p>
@@ -821,7 +1030,7 @@ const TestResults = () => {
             </Grid>
           )}
 
-          {/* Apply Filters Button */}
+          {/* Action Buttons */}
           <Grid item xs={12}>
             <Box sx={{ display: "flex", gap: 2 }}>
               <Button
@@ -843,6 +1052,34 @@ const TestResults = () => {
               >
                 Refresh Data
               </Button>
+
+              {/* Export Button - hanya muncul jika dateFilterType === "range" */}
+              {dateFilterType === "range" && (
+                <Tooltip 
+                  title={
+                    !startDate || !endDate 
+                      ? "Please select both start and end date to export" 
+                      : "Export data to CSV file"
+                  }
+                >
+                  <span>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleExportDataClientSide}
+                      startIcon={<GetApp />}
+                      disabled={!startDate || !endDate || isExporting}
+                      sx={{ 
+                        height: 55, 
+                        flex: 1,
+                        opacity: (!startDate || !endDate) ? 0.6 : 1
+                      }}
+                    >
+                      {isExporting ? "Exporting..." : "Export Data"}
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
             </Box>
           </Grid>
         </Grid>
