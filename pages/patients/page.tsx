@@ -235,7 +235,7 @@ const PatientForm: React.FC<PatientFormProps> = ({ onGlucoseTestSaved }) => {
 
     // Reset selected patient when user types (if patient was selected and user is typing something different)
     if (selectedPatient && value.length > 0) {
-      const expectedValue = `${selectedPatient.patient_code} - ${selectedPatient.name} (NIK: ${selectedPatient.nik})`;
+      const expectedValue = `${selectedPatient.no_rm} - ${selectedPatient.name} (NIK: ${selectedPatient.nik})`;
       if (!expectedValue.toLowerCase().includes(value.toLowerCase())) {
         setSelectedPatient(null);
       }
@@ -350,7 +350,7 @@ const PatientForm: React.FC<PatientFormProps> = ({ onGlucoseTestSaved }) => {
         }}
         options={patients}
         getOptionLabel={(option) =>
-          `${option.patient_code} - ${option.name} (NIK: ${option.nik})`
+          `${option.no_rm} - ${option.name} (NIK: ${option.nik})`
         }
         loading={loading}
         clearOnBlur={false}
