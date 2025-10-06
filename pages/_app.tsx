@@ -7,15 +7,15 @@ import ServerStatusHandler from "@/components/ServerStatusHandler";
 import { useEffect } from "react";
 
 function MyApp({ Component, pageProps }: AppProps) {
-  useEffect(() => {
-    const disableRightClick = (e: { preventDefault: () => void; }) => {
-      e.preventDefault();
-    };
-    document.addEventListener("contextmenu", disableRightClick);
-    return () => {
-      document.removeEventListener("contextmenu", disableRightClick);
-    };
-  }, []);
+  // useEffect(() => {
+  //   const disableRightClick = (e: { preventDefault: () => void; }) => {
+  //     e.preventDefault();
+  //   };
+  //   document.addEventListener("contextmenu", disableRightClick);
+  //   return () => {
+  //     document.removeEventListener("contextmenu", disableRightClick);
+  //   };
+  // }, []);
 
   return (
     <>
