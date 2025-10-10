@@ -43,12 +43,13 @@ import { useSearchParams } from "next/navigation";
 import GeneralPage from "../setting";
 import UserDetailsPage from "../account_setting/view";
 import Patients from "../patients";
-import OfflineForm from "../offlines";
+// import OfflineForm from "../offlines";
 // import HistoryIcon from "@mui/icons-material/History";
 import ActivityLogs from "../activity_log";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import EditUserPage from "../account_setting/edit";
 import LabOrders from "../lab_orders";
+import GlucoseTestPage from "../glucose-test";
 
 // Interface definitions
 interface GlucoseTest {
@@ -343,7 +344,7 @@ const Dashboard = () => {
 
   const superAdminMenuItems: MenuItem[] = [
     { name: "Dashboard", icon: <HomeOutlined />, menu: "dashboard" },
-    { name: "Offline", icon: <Cast />, menu: "offlines" },
+    // { name: "Offline", icon: <Cast />, menu: "offlines" },
     { name: "Patients", icon: <PeopleOutline />, menu: "patients" },
     { name: "Lab Orders", icon: <Biotech />, menu: "lab_orders" },
     { name: "Results", icon: <ListAltOutlined />, menu: "results" },
@@ -364,7 +365,7 @@ const Dashboard = () => {
 
   const adminMenuItems: MenuItem[] = [
     { name: "Dashboard", icon: <HomeOutlined />, menu: "dashboard" },
-    { name: "Offline", icon: <Cast />, menu: "offlines" },
+    // { name: "Offline", icon: <Cast />, menu: "offlines" },
     { name: "Patients", icon: <PeopleOutline />, menu: "patients" },
     { name: "Lab Orders", icon: <Biotech />, menu: "lab_orders" }, // Tambahkan baris ini
     { name: "Results", icon: <ListAltOutlined />, menu: "results" },
@@ -382,8 +383,8 @@ const Dashboard = () => {
     switch (activeMenu) {
       case "dashboard":
         return <DashboardPage />;
-      case "offlines":
-        return <OfflineForm />;
+      // case "offlines":
+      //   return <OfflineForm />;
       case "lab_orders":
         return <LabOrders />;
       case "patients":
@@ -394,6 +395,8 @@ const Dashboard = () => {
         );
       case "results":
         return <TestResults />;
+      case "glucose-test":
+        return <GlucoseTestPage />;
       case "build_apk":
         return <BuildApk />;
       case "account_setting":
@@ -606,9 +609,9 @@ const Dashboard = () => {
                               console.error("Error updating status:", error);
                             });
                           // window.location.href = `http://localhost:3002/dashboard?menu=results&search=${item.patient_code}&page=1&limit=10`;
-                            window.location.href = `https://rsud-amritambunan.fanscosa.co.id/dashboard?menu=results&search=${item.lab_number}&page=1&limit=10`;
-                          }}
-                          >
+                          window.location.href = `https://rsud-amritambunan.fanscosa.co.id/dashboard?menu=results&search=${item.lab_number}&page=1&limit=10`;
+                        }}
+                      >
                         <div>
                           <Typography variant="body2">
                             Patient Name: {item.patient_name}

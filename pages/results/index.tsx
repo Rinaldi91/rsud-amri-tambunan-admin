@@ -54,6 +54,7 @@ import PrintIcon from "@mui/icons-material/Print";
 import { CgMoreVertical } from "react-icons/cg"; // Import ikon "more"
 
 interface PrintResult {
+  patient_room: string;
   gender: string;
   id: number;
   patient_id: number;
@@ -68,6 +69,7 @@ interface PrintResult {
   is_validation: number;
   created_at: string;
   updated_at: string;
+  patient_created_at: string;
   note: string;
   patient_nik: string;
   patient_no_rm: string;
@@ -77,6 +79,7 @@ interface PrintResult {
   patient_number_phone: string;
   patient_barcode: string;
   user_validation: string;
+  patient_no_registrasi: string;
 }
 
 const TestResults = () => {
@@ -106,6 +109,52 @@ const TestResults = () => {
   const [totalGlucoseTestResult, setGlucoseTestResult] = useState(0);
   const [totalFilteredResult, setTotalFilteredResult] = useState(0); // total hasil search
   const [isExporting, setIsExporting] = useState(false); // State untuk loading export
+
+  const [selectedRoom, setSelectedRoom] = useState<string>("");
+  const [availableRooms, setAvailableRooms] = useState<string[]>([]);
+
+  const fetchAvailableRooms = useCallback(async () => {
+    try {
+      const token = Cookies.get("authToken");
+      if (!token) {
+        console.error("Authentication token missing");
+        return;
+      }
+
+      console.log("🔍 Fetching rooms..."); // Debug
+
+      const response = await getRequest("/api/available-rooms", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      console.log("📦 Full Response:", response); // Debug
+      console.log("📦 Response.data:", response.data); // Debug
+
+      // ✅ FIX: Berdasarkan log, struktur adalah response.data.rooms
+      if (response?.data?.rooms && Array.isArray(response.data.rooms)) {
+        console.log("✅ Rooms found:", response.data.rooms);
+        setAvailableRooms(response.data.rooms);
+      } else {
+        console.error("❌ Unexpected room data format:", response.data);
+        setAvailableRooms([]);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching rooms:", error);
+
+      setAvailableRooms([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAvailableRooms();
+  }, [fetchAvailableRooms]);
+
+  const handleRoomChange = (event: SelectChangeEvent<string>) => {
+    const newRoom = event.target.value as string;
+    setSelectedRoom(newRoom);
+    setPage(0);
+    updateQueryParams({ room: newRoom, page: "1" });
+  };
 
   const [dateFilterType, setDateFilterType] = useState<"single" | "range">(
     "single"
@@ -165,7 +214,7 @@ const TestResults = () => {
       queryParams.append("start_date", startDate.format("YYYY-MM-DD"));
       queryParams.append("end_date", endDate.format("YYYY-MM-DD"));
       queryParams.append("export", "true"); // Parameter untuk menandakan export
-      
+
       // Tambahkan filter lain jika ada
       if (searchTermResult) {
         queryParams.append("search", searchTermResult);
@@ -178,36 +227,37 @@ const TestResults = () => {
       const response = await getRequest(
         `/api/test-glucosa/export?${queryParams.toString()}`,
         {
-          responseType: 'blob' // Penting untuk file download
+          responseType: "blob", // Penting untuk file download
         }
       );
 
       // Buat blob dari response
       const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
 
       // Buat URL untuk download
       const downloadUrl = window.URL.createObjectURL(blob);
-      
+
       // Buat element anchor untuk download
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = downloadUrl;
-      
+
       // Generate filename dengan tanggal
-      const filename = `glucose_test_results_${startDate.format('YYYY-MM-DD')}_to_${endDate.format('YYYY-MM-DD')}.xlsx`;
+      const filename = `glucose_test_results_${startDate.format(
+        "YYYY-MM-DD"
+      )}_to_${endDate.format("YYYY-MM-DD")}.xlsx`;
       link.download = filename;
-      
+
       // Trigger download
       document.body.appendChild(link);
       link.click();
-      
+
       // Cleanup
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
 
       showSuccessToast("Data exported successfully!");
-
     } catch (error) {
       console.error("Error exporting data:", error);
       showErrorToast("Failed to export data. Please try again.");
@@ -237,7 +287,7 @@ const TestResults = () => {
       queryParams.append("start_date", startDate.format("YYYY-MM-DD"));
       queryParams.append("end_date", endDate.format("YYYY-MM-DD"));
       queryParams.append("limit", "10000"); // Set limit tinggi untuk mendapatkan semua data
-      
+
       if (searchTermResult) {
         queryParams.append("search", searchTermResult);
       }
@@ -248,7 +298,7 @@ const TestResults = () => {
       const response = await getRequest(
         `/api/test-glucosa?${queryParams.toString()}`
       );
-      
+
       const { glucosaTest = [] } = response.data;
 
       if (glucosaTest.length === 0) {
@@ -258,12 +308,16 @@ const TestResults = () => {
 
       // Convert data ke format CSV
       const csvData = convertToCSV(glucosaTest);
-      
-      // Download CSV
-      downloadCSV(csvData, `glucose_test_results_${startDate.format('YYYY-MM-DD')}_to_${endDate.format('YYYY-MM-DD')}.csv`);
-      
-      showSuccessToast(`Successfully exported ${glucosaTest.length} records!`);
 
+      // Download CSV
+      downloadCSV(
+        csvData,
+        `glucose_test_results_${startDate.format(
+          "YYYY-MM-DD"
+        )}_to_${endDate.format("YYYY-MM-DD")}.csv`
+      );
+
+      showSuccessToast(`Successfully exported ${glucosaTest.length} records!`);
     } catch (error) {
       console.error("Error exporting data:", error);
       showErrorToast("Failed to export data. Please try again.");
@@ -281,67 +335,71 @@ const TestResults = () => {
   // Helper function untuk convert data ke CSV
   const convertToCSV = (data: PrintResult[]): string => {
     const headers = [
-      'No',
-      'Patient Code',
-      'Lab Number', 
-      'Patient Name',
-      'NIK',
-      'No. RM',
-      'Date of Birth',
-      'Gender',
-      'Phone Number',
-      'Referral Doctor',
-      'Test Date & Time',
-      'Glucose Value',
-      'Unit',
-      'Method',
-      'Device Name',
-      'Validation Status',
-      'Validator',
-      'Notes',
-      'Created At',
-      'Updated At'
+      "No",
+      "Room",
+      "Patient Code",
+      "Lab Number",
+      "Patient Name",
+      "NIK",
+      "No. RM",
+      "Date of Birth",
+      "Gender",
+      "Phone Number",
+      "Referral Doctor",
+      "Test Date & Time",
+      "Glucose Value",
+      "Unit",
+      "Method",
+      "Device Name",
+      "Validation Status",
+      "Validator",
+      "Notes",
+      "Created At",
+      "Updated At",
     ];
 
     const csvContent = [
-      headers.join(','),
-      ...data.map((item, index) => [
-        index + 1,
-        `"${item.patient_code || ''}"`,
-        `"${item.lab_number || ''}"`,
-        `"${item.patient_name || ''}"`,
-        `"${item.patient_nik || ''}"`,
-        `"${item.patient_no_rm || ''}"`,
-        `"${formatDateOfBirth(item.patient_date_of_birth)}"`,
-        `"${item.patient_gender || ''}"`,
-        `"${item.patient_number_phone || ''}"`,
-        `"${item.patient_referral_doctor || ''}"`,
-        `"${formatDate(item.date_time)}"`,
-        item.glucos_value,
-        `"${item.unit || ''}"`,
-        `"${item.metode || ''}"`,
-        `"${item.device_name || ''}"`,
-        item.is_validation === 1 ? 'Validated' : 'Not Validated',
-        `"${item.user_validation || ''}"`,
-        `"${item.note || ''}"`,
-        `"${formatDate(item.created_at)}"`,
-        `"${formatDate(item.updated_at)}"`
-      ].join(','))
-    ].join('\n');
+      headers.join(","),
+      ...data.map((item, index) =>
+        [
+          index + 1,
+          `"${item.patient_code || ""}"`,
+          `"${item.lab_number || ""}"`,
+          `"${item.patient_name || ""}"`,
+          `"${item.patient_nik || ""}"`,
+          `"${item.patient_no_rm || ""}"`,
+          `"${formatDateOfBirth(item.patient_date_of_birth)}"`,
+          `"${item.patient_gender || ""}"`,
+          `"${item.patient_number_phone || ""}"`,
+          `"${item.patient_referral_doctor || ""}"`,
+          `"${item.patient_room || ""}"`,
+          `"${formatDate(item.date_time)}"`,
+          item.glucos_value,
+          `"${item.unit || ""}"`,
+          `"${item.metode || ""}"`,
+          `"${item.device_name || ""}"`,
+          item.is_validation === 1 ? "Validated" : "Not Validated",
+          `"${item.user_validation || ""}"`,
+          `"${item.note || ""}"`,
+          `"${formatDate(item.created_at)}"`,
+          `"${formatDate(item.updated_at)}"`,
+        ].join(",")
+      ),
+    ].join("\n");
 
     return csvContent;
   };
 
   // Helper function untuk download CSV
   const downloadCSV = (csvContent: string, filename: string) => {
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+
     if (link.download !== undefined) {
       const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', filename);
-      link.style.visibility = 'hidden';
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = "hidden";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -368,6 +426,12 @@ const TestResults = () => {
       }
       if (validationStatus) {
         queryParams.append("is_validation", validationStatus);
+      }
+
+      // Perbaikan: pastikan selectedRoom dikirim dengan benar
+      if (selectedRoom) {
+        queryParams.append("room", selectedRoom);
+        console.log("Filtering by room:", selectedRoom); // Debug log
       }
 
       const response = await getRequest(
@@ -399,6 +463,7 @@ const TestResults = () => {
     endDate,
     validationStatus,
     dateFilterType,
+    selectedRoom, // ✅ PENTING: Tambahkan ini ke dependency array
   ]);
 
   useEffect(() => {
@@ -485,7 +550,8 @@ const TestResults = () => {
     setEndDate(null);
     setValidationStatus("");
     setDateFilterType("single");
-    setPage(0); // Reset ke halaman pertama
+    setSelectedRoom(""); // ✅ Reset room juga
+    setPage(0);
 
     // Update query params ke nilai default
     updateQueryParams({
@@ -493,6 +559,7 @@ const TestResults = () => {
       limit: rowsPerPage.toString(),
       search: "",
       is_validation: "",
+      room: "", // ✅ Reset room di query params
       date_time: "",
       start_date: "",
       end_date: "",
@@ -830,7 +897,9 @@ const TestResults = () => {
               <div>
                 <p class="font-bold mb-12">Laboratory Director:</p>
                 <div class="border-b border-gray-400 w-48"></div>
-                <p class="mt-1 text-sm">${director || ""}</p>
+                <p class="mt-1 text-sm">${
+                  result.patient_referral_doctor || "N/A"
+                }</p>
               </div>
               <div>
                 <p class="font-bold mb-12">Analis Laboratorium:</p>
@@ -898,7 +967,7 @@ const TestResults = () => {
       <Paper elevation={3} sx={{ p: 2, mt: 3, mb: 3 }}>
         <Grid container spacing={2}>
           {/* Search Field */}
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12}>
             <TextField
               label="Search Patient Name or Code"
               variant="outlined"
@@ -949,6 +1018,42 @@ const TestResults = () => {
                 <MenuItem value="0">Not Validated</MenuItem>
                 <MenuItem value="1">Validated</MenuItem>
               </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth sx={{ height: 55 }}>
+              <InputLabel id="room-filter-label">Filter by Room</InputLabel>
+              <Select
+                labelId="room-filter-label"
+                id="room-filter"
+                value={selectedRoom}
+                label="Filter by Room"
+                onChange={handleRoomChange}
+                sx={{ height: 55 }}
+              >
+                <MenuItem value="">All Rooms</MenuItem>
+                {availableRooms.length > 0 ? (
+                  availableRooms.map((room, index) => {
+                    console.log(`🏠 Rendering room ${index}:`, room);
+                    return (
+                      <MenuItem key={`room-${index}-${room}`} value={room}>
+                        {room}
+                      </MenuItem>
+                    );
+                  })
+                ) : (
+                  <MenuItem disabled value="">
+                    No rooms available
+                  </MenuItem>
+                )}
+              </Select>
+              {/* Debug info di bawah select */}
+              <Typography variant="caption" sx={{ mt: 0.5, color: "gray" }}>
+                {availableRooms.length > 0
+                  ? `${availableRooms.length} rooms available`
+                  : "Loading rooms..."}
+              </Typography>
             </FormControl>
           </Grid>
 
@@ -1055,10 +1160,10 @@ const TestResults = () => {
 
               {/* Export Button - hanya muncul jika dateFilterType === "range" */}
               {dateFilterType === "range" && (
-                <Tooltip 
+                <Tooltip
                   title={
-                    !startDate || !endDate 
-                      ? "Please select both start and end date to export" 
+                    !startDate || !endDate
+                      ? "Please select both start and end date to export"
                       : "Export data to CSV file"
                   }
                 >
@@ -1069,10 +1174,10 @@ const TestResults = () => {
                       onClick={handleExportDataClientSide}
                       startIcon={<GetApp />}
                       disabled={!startDate || !endDate || isExporting}
-                      sx={{ 
-                        height: 55, 
+                      sx={{
+                        height: 55,
                         flex: 1,
-                        opacity: (!startDate || !endDate) ? 0.6 : 1
+                        opacity: !startDate || !endDate ? 0.6 : 1,
                       }}
                     >
                       {isExporting ? "Exporting..." : "Export Data"}
@@ -1095,7 +1200,7 @@ const TestResults = () => {
         // Konten utama (data tabel)
         <>
           <Paper elevation={3}>
-            <TableContainer className="h-[800px]">
+            <TableContainer className="h-full">
               <Table stickyHeader>
                 <TableHead>
                   <TableRow>
@@ -1114,19 +1219,25 @@ const TestResults = () => {
                     <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
                       No.
                     </TableCell>
-                    {/* <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
-                      Patient Code
-                    </TableCell> */}
                     <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
                       Lab Number
                     </TableCell>
                     <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
-                      Patient Name
+                      Patient Info
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
+                      Room
                     </TableCell>
                     <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
                       Date & Time
                     </TableCell>
-                    <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
+                    <TableCell
+                      sx={{
+                        fontWeight: "bold",
+                        fontSize: "16px",
+                        textAlign: "center",
+                      }}
+                    >
                       Glucose Value
                     </TableCell>
                     <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
@@ -1156,10 +1267,71 @@ const TestResults = () => {
                         <TableCell>{page * rowsPerPage + index + 1}</TableCell>
                         {/* <TableCell>{glucosaTest.patient_code}</TableCell> */}
                         <TableCell>{glucosaTest.lab_number}</TableCell>
-                        <TableCell>{glucosaTest.patient_name}</TableCell>
                         <TableCell>
-                          {formatDate(glucosaTest.date_time)}
+                          <Box
+                            sx={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 0.5,
+                            }}
+                          >
+                            <Typography
+                              variant="body2"
+                              sx={{ fontWeight: "bold", color: "#333" }}
+                            >
+                              {glucosaTest.patient_name?.toUpperCase()} (
+                              {glucosaTest.patient_gender})
+                            </Typography>
+
+                            <Typography
+                              variant="caption"
+                              sx={{ color: "#555" }}
+                            >
+                              NIK: {glucosaTest.patient_nik}
+                            </Typography>
+
+                            <Typography
+                              variant="caption"
+                              sx={{ color: "#555" }}
+                            >
+                              No. RM: {glucosaTest.patient_no_rm} | No.
+                              Registrasi: {glucosaTest.patient_no_registrasi}
+                            </Typography>
+                          </Box>
                         </TableCell>
+                        <TableCell>
+                          {glucosaTest.patient_room?.toUpperCase()}
+                        </TableCell>
+                        <TableCell>
+                          <Box display="flex" flexDirection="column">
+                            <Typography variant="body2">
+                              <Box component="span" sx={{ fontWeight: "bold" }}>
+                                Order Date :
+                              </Box>{" "}
+                              <Box component="span">
+                                {glucosaTest.patient_created_at
+                                  ? dayjs(glucosaTest.patient_created_at)
+                                      .locale("id")
+                                      .format("dddd, DD MMMM YYYY HH:mm")
+                                  : "-"}
+                              </Box>
+                            </Typography>
+
+                            <Typography variant="body2">
+                              <Box component="span" sx={{ fontWeight: "bold" }}>
+                                Test Date :
+                              </Box>{" "}
+                              <Box component="span">
+                                {glucosaTest.date_time
+                                  ? dayjs(glucosaTest.date_time)
+                                      .locale("id")
+                                      .format("dddd, DD MMMM YYYY HH:mm")
+                                  : "-"}
+                              </Box>
+                            </Typography>
+                          </Box>
+                        </TableCell>
+
                         <TableCell
                           sx={{
                             textAlign: "center",
@@ -1197,15 +1369,16 @@ const TestResults = () => {
                             >
                               <CheckCircleOutline className="mr-2" /> Validate
                             </MenuItem>
-                            <MenuItem
+
+                            {/* <MenuItem
                               onClick={() => {
                                 handlePrintClick(glucosaTest);
                                 handleCloseMenu();
                               }}
-                              className="flex items-center"
+                              className="items-center hidden"
                             >
                               <PrintIcon className="mr-2" /> Print
-                            </MenuItem>
+                            </MenuItem> */}
                           </Menu>
                         </TableCell>
                       </TableRow>

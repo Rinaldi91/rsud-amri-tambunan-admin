@@ -75,6 +75,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 interface LabOrder {
   id: number;
   patient_code: string;
+  patient_id: number;
   no_rm: string;
   no_registrasi: string;
   referral_doctor: string;
@@ -157,7 +158,7 @@ const LabOrders = () => {
   // Detail modal states
   const [openDetailModal, setOpenDetailModal] = useState(false);
   const [detailData, setDetailData] = useState<any>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [loadingDetail] = useState(false);
 
   // Lab order form data
   const [labOrderData, setLabOrderData] = useState({
@@ -258,10 +259,14 @@ const LabOrders = () => {
             showErrorToast("You are not authorized to access room data.");
             break;
           case 500:
-            showErrorToast("Server error while fetching rooms. Please try again later.");
+            showErrorToast(
+              "Server error while fetching rooms. Please try again later."
+            );
             break;
           default:
-            showErrorToast("Failed to fetch available rooms. Please try again.");
+            showErrorToast(
+              "Failed to fetch available rooms. Please try again."
+            );
         }
       } else {
         showErrorToast("An unexpected error occurred while fetching rooms.");
@@ -722,6 +727,39 @@ const LabOrders = () => {
 
   const filteredLabOrders = labOrdersData;
 
+  // Tambahkan function ini setelah function-function yang sudah ada
+  const handleNavigateToGlucoseTest = (labOrder: LabOrder) => {
+    // Simpan data lab order ke sessionStorage untuk diambil di halaman tujuan
+    const patientData = {
+      id: labOrder.id,
+      patient_code: labOrder.patient_code,
+      patient_id: labOrder.patient_id,
+      no_rm: labOrder.no_rm,
+      nik: labOrder.nik,
+      name: labOrder.name,
+      gender: labOrder.gender,
+      place_of_birth: labOrder.place_of_birth,
+      date_of_birth: labOrder.date_of_birth,
+      address: labOrder.address,
+      number_phone: labOrder.number_phone,
+      email: labOrder.email,
+      lab_number: labOrder.lab_number,
+      barcode: labOrder.barcode,
+    };
+
+    // Simpan ke sessionStorage (akan hilang saat browser ditutup)
+    sessionStorage.setItem("selectedPatientData", JSON.stringify(patientData));
+
+    // Navigate ke halaman glucose test dengan query parameters yang benar
+    router.push({
+      pathname: "/dashboard",
+      query: {
+        menu: "glucose-test",
+        lab_number: labOrder.lab_number,
+      },
+    });
+  };
+
   return (
     <>
       <Head>
@@ -780,8 +818,9 @@ const LabOrders = () => {
                 sx={{ height: 55 }}
               >
                 <MenuItem value="">All Orders</MenuItem>
-                <MenuItem value="0">Process</MenuItem>
+                <MenuItem value="0">Proccess</MenuItem>
                 <MenuItem value="1">Completed</MenuItem>
+                <MenuItem value="2">Canceled</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -911,11 +950,11 @@ const LabOrders = () => {
       ) : (
         <>
           <Paper>
-            <TableContainer className="h-[800px] mt-1">
-              <Table>
+            <TableContainer className="h-full mt-1">
+              <Table stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell colSpan={7} sx={{ backgroundColor: "#f9f9f9" }}>
+                    <TableCell colSpan={8} sx={{ backgroundColor: "#f9f9f9" }}>
                       <Typography
                         variant="subtitle1"
                         sx={{ fontWeight: "bold", color: "#333" }}
@@ -940,8 +979,8 @@ const LabOrders = () => {
                     <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
                       Patient Info
                     </TableCell>
-                    <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
-                      Referral Doctor
+                    <TableCell sx={{ width: "15%", fontWeight: "bold", fontSize: "16px" }}>
+                      Doctor
                     </TableCell>
                     <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
                       Room
@@ -949,8 +988,11 @@ const LabOrders = () => {
                     <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
                       Status
                     </TableCell>
-                    <TableCell sx={{ fontWeight: "bold", fontSize: "16px" }}>
+                    <TableCell sx={{ width: "15%",fontWeight: "bold", fontSize: "16px" }}>
                       Order Date
+                    </TableCell>
+                    <TableCell sx={{ width: "15%", fontWeight: "bold", fontSize: "16px", textAlign:"left", alignItems:"center"}}>
+                      Actions
                     </TableCell>
                   </TableRow>
                 </TableHead>
@@ -961,10 +1003,18 @@ const LabOrders = () => {
                         key={labOrder.id}
                         sx={{
                           backgroundColor:
-                            labOrder.is_order === 1 ? "#fff3cd" : "inherit",
+                            labOrder.is_order === 1
+                              ? "#fff3cd" // kuning muda
+                              : labOrder.is_order === 2
+                              ? "#f8d7da" // merah muda
+                              : "inherit",
                           "&:hover": {
                             backgroundColor:
-                              labOrder.is_order === 1 ? "#ffeaa7" : "#f5f5f5",
+                              labOrder.is_order === 1
+                                ? "#ffeaa7"
+                                : labOrder.is_order === 2
+                                ? "#f5b7b1"
+                                : "#f5f5f5",
                           },
                         }}
                       >
@@ -977,16 +1027,7 @@ const LabOrders = () => {
                               gap: 1,
                             }}
                           >
-                            <span
-                              // onClick={(e) => {
-                              //   e.preventDefault();
-                              //   e.stopPropagation();
-                              //   router.push(
-                              //     `/lab_orders/show?labOrderId=${labOrder.id}`
-                              //   );
-                              // }}
-                              className="text-black-500"
-                            >
+                            <span className="text-black-500">
                               {labOrder.lab_number}
                             </span>
                           </Box>
@@ -1027,20 +1068,67 @@ const LabOrders = () => {
                         <TableCell>{labOrder.room?.toUpperCase()}</TableCell>
                         <TableCell>
                           <Chip
-                            label={labOrder.is_order === 1 ? "Completed" : "Process"}
-                            color={labOrder.is_order === 1 ? "success" : "warning"}
+                            label={
+                              labOrder.is_order === 1
+                                ? "Completed"
+                                : labOrder.is_order === 2
+                                ? "Canceled"
+                                : "Process"
+                            }
+                            color={
+                              labOrder.is_order === 1
+                                ? "success"
+                                : labOrder.is_order === 2
+                                ? "error"
+                                : "warning"
+                            }
                             size="small"
-                            sx={{ 
+                            sx={{
                               fontWeight: "bold",
                               fontSize: "0.75rem",
-                              minWidth: "80px"
+                              minWidth: "90px",
+                              borderRadius: "8px",
+                              textTransform: "capitalize",
                             }}
                           />
                         </TableCell>
+
                         <TableCell>
                           {dayjs(labOrder.created_at)
                             .locale("id")
                             .format("dddd, DD MMMM YYYY HH:mm")}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            size="small"
+                            startIcon={<ScienceIcon />}
+                            onClick={() =>
+                              handleNavigateToGlucoseTest(labOrder)
+                            }
+                            disabled={
+                              labOrder.is_order === 1 || labOrder.is_order === 2
+                            } // ✅ disable jika Completed atau Canceled
+                            sx={{
+                              borderRadius: 2,
+                              textTransform: "none",
+                              fontWeight: "bold",
+                              alignItems: "center",
+                              opacity:
+                                labOrder.is_order === 1 ||
+                                labOrder.is_order === 2
+                                  ? 0.6
+                                  : 1, // efek visual saat disable
+                              cursor:
+                                labOrder.is_order === 1 ||
+                                labOrder.is_order === 2
+                                  ? "not-allowed"
+                                  : "pointer",
+                            }}
+                          >
+                            Glucose Test
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))

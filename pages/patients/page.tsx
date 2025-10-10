@@ -496,33 +496,33 @@ const PatientForm: React.FC<PatientFormProps> = ({ onGlucoseTestSaved }) => {
                     })
                   }
                 />
-                <TextField
-                  label="Glucose Value"
-                  type="number"
-                  variant="outlined"
-                  fullWidth
-                  value={
-                    manualInput.glucoseValue === 0
-                      ? ""
-                      : manualInput.glucoseValue
-                  }
-                  onChange={(e) =>
-                    setManualInput({
-                      ...manualInput,
-                      glucoseValue: e.target.value
-                        ? parseFloat(e.target.value)
-                        : 0,
-                    })
-                  }
-                  onFocus={(e) => {
-                    if (manualInput.glucoseValue === 0) {
-                      e.target.select();
+                  <TextField
+                    label="Glucose Value"
+                    type="number"
+                    variant="outlined"
+                    fullWidth
+                    value={
+                      manualInput.glucoseValue === 0
+                        ? ""
+                        : manualInput.glucoseValue
                     }
-                  }}
-                  InputProps={{
-                    inputProps: { min: 0, step: 0.1 },
-                  }}
-                />
+                    onChange={(e) =>
+                      setManualInput({
+                        ...manualInput,
+                        glucoseValue: e.target.value
+                          ? parseFloat(e.target.value)
+                          : 0,
+                      })
+                    }
+                    onFocus={(e) => {
+                      if (manualInput.glucoseValue === 0) {
+                        e.target.select();
+                      }
+                    }}
+                    InputProps={{
+                      inputProps: { min: 0, step: 0.1 },
+                    }}
+                  />
                 <TextField
                   select
                   label="Unit"

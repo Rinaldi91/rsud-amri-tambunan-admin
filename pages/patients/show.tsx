@@ -265,27 +265,43 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
   }
 
   const getGlucoseChartData = () => {
+    // urutkan berdasarkan tanggal
     const sortedTests = [...glucoseTests].sort(
       (a, b) =>
         new Date(a.date_time).getTime() - new Date(b.date_time).getTime()
     );
-    const labels = sortedTests.map((test) =>
-      new Date(test.date_time).toLocaleDateString("id-ID")
-    );
-    const data = sortedTests.map((test) => parseFloat(test.glucos_value));
+
+    const labels: string[] = [];
+    const numericValues: (number | null)[] = [];
+
+    sortedTests.forEach((test) => {
+      const rawValue = test.glucos_value?.toString().trim() || "";
+
+      // ambil angka dari string, contoh "123 mg/dL" -> 123
+      const cleaned = rawValue.replace(/[^0-9.]/g, "");
+
+      const numericValue = cleaned ? parseFloat(cleaned) : NaN;
+
+      // simpan label tanggal
+      labels.push(new Date(test.date_time).toLocaleDateString("id-ID"));
+
+      // jika bukan angka (misal "HI", "LO"), simpan null agar Chart.js skip titik itu
+      numericValues.push(isNaN(numericValue) ? null : numericValue);
+    });
 
     return {
       labels,
       datasets: [
         {
           label: "Glucose Level (mg/dL)",
-          data,
+          data: numericValues,
           borderColor: "rgba(255, 0, 0, 1)",
           backgroundColor: "rgba(255, 0, 0, 0.2)",
           fill: false,
-          tension: 0.7,
-          pointRadius: 8,
+          tension: 0.4,
+          pointRadius: 6,
           pointStyle: "circle",
+          spanGaps: true, // agar garis tidak terputus oleh nilai null
         },
       ],
     };
@@ -339,6 +355,25 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
 
   const handleBackClick = () => {
     router.push("/dashboard?menu=patients&page=1&limit=10&search=");
+  };
+
+  // Fungsi menentukan status glukosa berdasarkan string
+  const getGlucoseStatus = (value: string) => {
+    if (!value) return { text: "Unknown", color: "#9CA3AF" };
+
+    const val = value.toString().trim().toUpperCase();
+
+    if (val.includes("HI")) return { text: "Very High", color: "#E53935" };
+    if (val.includes("LO")) return { text: "Low", color: "#1E88E5" };
+
+    // Ambil angka dari string (misal "123 mg/dL" -> 123)
+    const numeric = parseFloat(val.replace(/[^0-9.]/g, ""));
+    if (isNaN(numeric)) return { text: "Unknown", color: "#9CA3AF" };
+
+    if (numeric < 70) return { text: "Low", color: "#1E88E5" };
+    if (numeric < 140) return { text: "Normal", color: "#43A047" };
+    if (numeric < 200) return { text: "High", color: "#FB8C00" };
+    return { text: "Very High", color: "#E53935" };
   };
 
   return (
@@ -578,7 +613,7 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
                   <TableHead>
                     <TableRow>
                       <TableCell
-                        colSpan={6}
+                        colSpan={7}
                         sx={{ backgroundColor: "#f9f9f9" }}
                       >
                         <Typography
@@ -605,6 +640,7 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
                       <TableCell sx={{ fontWeight: "bold" }}>
                         Glucose Value
                       </TableCell>
+                      <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
                       <TableCell sx={{ fontWeight: "bold" }}>Unit</TableCell>
                       <TableCell sx={{ fontWeight: "bold" }}>Metode</TableCell>
                     </TableRow>
@@ -612,29 +648,47 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
 
                   <TableBody>
                     {glucoseTests.length > 0 ? (
-                      glucoseTests.map((test, index) => (
-                        <TableRow key={test.id}>
-                          <TableCell>
-                            {page * rowsPerPage + index + 1}
-                          </TableCell>
-                          <TableCell>
-                            {test.lab_number || "Undefined"}
-                          </TableCell>
-                          <TableCell>
-                            <DateTimeDisplay dateTime={test.date_time} />
-                          </TableCell>
-                          <TableCell>
-                            {Math.round(parseFloat(test.glucos_value))}
-                          </TableCell>
-                          <TableCell>{test.unit}</TableCell>
-                          <TableCell>
-                            {test.metode || "Not specified"}
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      glucoseTests.map((test, index) => {
+                        const status = getGlucoseStatus(test.glucos_value);
+                        return (
+                          <TableRow key={test.id}>
+                            <TableCell>
+                              {page * rowsPerPage + index + 1}
+                            </TableCell>
+                            <TableCell>
+                              {test.lab_number || "Undefined"}
+                            </TableCell>
+                            <TableCell>
+                              <DateTimeDisplay dateTime={test.date_time} />
+                            </TableCell>
+                            <TableCell>{test.glucos_value}</TableCell>
+
+                            {/* ✅ Status Keterangan */}
+                            <TableCell>
+                              <span
+                                style={{
+                                  color: "#fff",
+                                  backgroundColor: status.color,
+                                  padding: "4px 8px",
+                                  borderRadius: "12px",
+                                  fontWeight: "bold",
+                                  fontSize: "0.8rem",
+                                }}
+                              >
+                                {status.text}
+                              </span>
+                            </TableCell>
+
+                            <TableCell>{test.unit}</TableCell>
+                            <TableCell>
+                              {test.metode || "Not specified"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                           <Box
                             sx={{
                               display: "flex",
@@ -654,7 +708,7 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
                             </Typography>
                             <Typography variant="body2" sx={{ mt: 0.5 }}>
                               Try adjusting your search or filter to find what
-                              you&apos;re looking for
+                              you're looking for
                             </Typography>
                           </Box>
                         </TableCell>

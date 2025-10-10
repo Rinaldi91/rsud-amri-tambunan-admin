@@ -497,7 +497,7 @@ const Patients = () => {
       ) : (
         <>
           <Paper>
-            <TableContainer className="h-[800px] mt-1">
+            <TableContainer className="h-full mt-1">
               <Table>
                 <TableHead>
                   <TableRow>
